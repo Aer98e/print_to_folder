@@ -1,3 +1,18 @@
 {
-    "name": "EPSON L575 Series"
+    "name": "EPSON L575 Series",
+    "mode": "choir",
+    "choir": {
+        "alto": 3,
+        "bajo": 3,
+        "SATB": 1,
+        "soprano": 3,
+        "tenor": 3
+    },
+    "instruments": {
+        "alto": 1,
+        "bajo": 1,
+        "clarintete": 1,
+        "soprano": 1,
+        "director": 1
+    }
 }
