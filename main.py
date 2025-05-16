@@ -3,7 +3,7 @@ import json
 import os
 import subprocess
 
-class Config_Manager():
+class ConfigManager():
     path = 'config'
 
     @classmethod
@@ -41,7 +41,7 @@ class Config_Manager():
     @classmethod
     def edit_config(cls, name, new_value):
         if not isinstance(new_value, dict):
-            raise TypeError("El nuevo valor deve ser un diccionario.")
+            raise TypeError("El nuevo valor debe ser un diccionario.")
         
         select = cls.find_configuration(name, safe_mode=True)
         if not select:
@@ -58,7 +58,8 @@ def test(fun):
         print("\tArgumentos: ")
         for arg in args:
             print(" -", arg)
-        print("\tArgumentos: ")
+
+        print("\tClave/Valor: ")
         for karg in keyargs:
             print(" -", karg)
         print("_________________________________________________")
@@ -75,49 +76,45 @@ def get_printers(show = True):
     return [printer[2] for printer in printers]
 
 def get_files(path, complete=True, endswith=None):
-    if endswith and not '.' in endswith:
-        endswith=f".{endswith}"
-
     if not os.path.exists(path):
         raise FileNotFoundError("La ruta es inválida.")
     
-    origin_dir = os.getcwd()
-    os.chdir(path)
-    files = [file for file in os.listdir() if os.path.isfile(file)]
+    if endswith and not '.' in endswith:
+        endswith=f".{endswith}"
+
+    files = [file for file in os.listdir(path) if os.path.isfile(os.path.join(path, file))]
     if endswith:
         files = list(filter(lambda file: file.endswith(endswith), files))
     if complete:
         files = list(map(lambda file:os.path.join(path, file), files))
-    
-    os.chdir(origin_dir)
 
     return files
 
 def register_printer():
-    printers_available = get_printers()
+    printers_available = get_printers(show=True)
+    attemps = 5
 
-    while True:
+    for _ in range(attemps):
         print("==============================================================")
         ans = input("\nSeleccione el número de la impresora a usar: ").strip()
         try:
             select_print = printers_available[int(ans)-1]
-            break
+            ConfigManager.edit_config('printer', {'name':select_print})
+            return
         
-        except IndexError as e:
+        except (IndexError, ValueError) as e:
             print(f"\n====== ERROR ====== {e}")
-            print("El número no corresponde a ninguna impresora, vuelva a intentar...")
+            print("Entrada inválida, vuelva a intentar.")
 
-        except ValueError as e:
-            print(f"\n====== ERROR ====== {e}")
-            print("Debe ingresar un número, vuelva a intentar...")
-
-    Config_Manager.edit_config('printer', {'name':select_print})
+    raise RuntimeError ("No se pudo establecer una impresora despues de varios intentos.")
 
 @test
 def printer_ghostscript(pdf_path, printer_name, number=1):
     """Envía un archivo PDF a la impresora de manera silenciosa con Ghostscript."""
+    runner = ConfigManager.load_config('paths')['ghostscript']
+
     gs_command = [
-        "C:\\Program Files\\gs\\gs10.05.1\\bin\\gswin64c.exe",
+        runner,
         "-dBATCH",
         "-dNOPAUSE",
         "-dQUIET",
@@ -141,14 +138,12 @@ def _recognize(file: str):
 
 def ejecutar_impresor(dir_path):
     """Ejecuta todo el flujo: filtra archivos y los envía a imprimir."""
-    while True:
-        configuration = Config_Manager.load_config('printer')
-        printer = configuration['name']
-        if printer:
-            break
+    configuration = ConfigManager.load_config('printer')
+    printer = configuration['name']
+    if not printer:
         register_printer()
         
-    archivos_pdf = get_files(dir_path, endswith='txt')
+    archivos_pdf = get_files(dir_path, endswith='pdf')
     log_print = []
 
     print(f"Iniciando impresión en '{printer}'...")
@@ -162,12 +157,12 @@ def ejecutar_impresor(dir_path):
         print(resultado)
 
     # Guardar registro en JSON
-    Config_Manager.save_config('log_impresion', log_print)
+    ConfigManager.save_config('log_impresion', log_print)
 
     print("Proceso de impresión completado. Log guardado en 'log_impresion.json'.")
 
 def main():
-    pass
+    ejecutar_impresor('files')
 
 if __name__ == "__main__":
-    ejecutar_impresor('files')
+    main()
